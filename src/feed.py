@@ -19,6 +19,7 @@ ROUTE_PREFIX = os.getenv('ROUTE_PREFIX', '/radio')
 CACHE_TTL = int(os.getenv('CACHE_TTL', '3600'))  # Default 1 hour
 CACHE_INVALIDATION_FILE = RECORDINGS_DIR / '.last_recording'
 LOGO_DIR = Path('/app/logo')
+FORCE_HTTPS = os.getenv('FORCE_HTTPS', 'false').lower() == 'true'
 
 app = Bottle()
 
@@ -109,6 +110,7 @@ def require_auth():
     
     provided_secret = request.query.get('secret', '')
     if provided_secret != SECRET:
+        print(f"🚫 Unauthorized access attempt from {request.remote_addr} to {request.path}")
         abort(403, "Invalid or missing secret")
 
 # ======================================================================
@@ -193,6 +195,11 @@ def get_base_url():
     
     # Construct base URL with dynamic route prefix
     prefix = ROUTE_PREFIX.lstrip('/')
+    
+    # Force HTTPS if configured
+    if FORCE_HTTPS:
+        scheme = 'https'
+        
     base_url = f"{scheme}://{host}/{prefix}/"
     return base_url
 
@@ -322,7 +329,7 @@ def generate_podcast_feed_xml(program_name=None, program_id=None, schedule=None)
         return _feed_cache[cache_key]
     
     # Cache miss - generate feed
-    print(f"📦 Cache MISS - Generating new feed for: {web_base_url}")
+    print(f"📦 Cache MISS - Generating new feed for: {web_base_url} (ID: {program_id or 'all'})")
     podcast = _generate_podcast_feed_internal(program_name, program_id, schedule)
     rss_xml = podcast.rss_str()
     
@@ -342,7 +349,6 @@ def index():
         'status': 'ok',
         'service': 'Radio Feed Service',
         'recordings_dir': str(RECORDINGS_DIR),
-        'files_count': len(list(RECORDINGS_DIR.glob('*.m4a'))),
         'programs': list(PROGRAMS.keys()) if PROGRAMS else []
     }
 

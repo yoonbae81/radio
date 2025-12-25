@@ -1,0 +1,20 @@
+[Unit]
+Description=Radio Recording
+After=network.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/srv/radio
+# Pass system user ID and group ID to Docker Compose
+Environment=USER_ID=%U
+Environment=GROUP_ID=%G
+# Check if recording is needed (lightweight bash script)
+ExecStartPre=/srv/radio/scripts/check-recording.sh
+# If check succeeds (exit 0), run Docker container for recording
+ExecStart=/usr/bin/docker compose run --rm recorder
+StandardOutput=journal
+StandardError=journal
+RemainAfterExit=no
+
+[Install]
+WantedBy=default.target

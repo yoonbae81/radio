@@ -1,0 +1,29 @@
+name: Deploy Radio Service
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Remote Server
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          script: |
+            # Navigate to the repository directory (adjust path if necessary)
+            # We assume the repo is already cloned on the server
+            cd ~/radio || exit 1
+            
+            echo "📥 Pulling latest changes..."
+            git pull origin master
+            
+            echo "🚀 Running deployment script..."
+            bash scripts/deploy.sh

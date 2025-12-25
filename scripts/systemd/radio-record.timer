@@ -1,0 +1,10 @@
+[Unit]
+Description=Timer for Radio Recording
+
+[Timer]
+# Trigger every minute to check for scheduled programs
+# Lock file prevents concurrent executions
+OnCalendar=*:0/1
+
+[Install]
+WantedBy=timers.target

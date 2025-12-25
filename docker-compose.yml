@@ -1,0 +1,29 @@
+services:
+  # Universal Radio Recording Service
+  recorder:
+    build:
+      context: .
+      target: recorder
+    container_name: radio-recorder
+    user: "${USER_ID:-0}:${GROUP_ID:-0}"
+    env_file:
+      - .env
+    volumes:
+      - ${DATA_DIR:-/srv/radio}/recordings:/app/recordings
+    restart: no
+
+  # Feed Service
+  feed:
+    build:
+      context: .
+      target: feed
+    container_name: radio-feed
+    user: "${USER_ID:-0}:${GROUP_ID:-0}"
+    env_file:
+      - .env
+    ports:
+      - "${PORT:-8013}:8080"
+    volumes:
+      - ${DATA_DIR:-/srv/radio}/recordings:/app/recordings:ro
+      - ${DATA_DIR:-/srv/radio}/logo:/app/logo:ro
+    restart: unless-stopped

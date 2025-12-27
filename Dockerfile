@@ -37,7 +37,7 @@ RUN chmod +x /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]
 
 # Stage 2: Bottle feed service
-FROM python:3.11-slim AS feed
+FROM python:3.14-slim AS feed
 
 # Install system dependencies
 RUN apt-get update && \

@@ -181,10 +181,10 @@ def parse_and_validate_args():
                 start_min = int(start_time[2:])
                 start_total_min = start_hour * 60 + start_min
                 
-                # Check if current time is within 0-2 minutes of start time
+                # Check if current time is within 0-5 minutes after start time
                 diff = current_total_min - start_total_min
                 
-                if diff <= 5 and diff < min_diff:
+                if 0 <= diff <= 5 and diff < min_diff:
                     min_diff = diff
                     best_match = {
                         'program_id': program_id,

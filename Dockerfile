@@ -23,11 +23,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application files
 COPY src/record.py .
-COPY src/touch.py .
-
-
 # Make scripts executable
-RUN chmod +x record.py touch.py
+RUN chmod +x record.py
+
 
 # Create programs directory
 RUN mkdir -p /app/programs

@@ -279,12 +279,12 @@ radio-recorder/
 ├── .env.example                # 환경 변수 템플릿
 ├── src/
 │   ├── record.py              # 녹음 핵심 로직
-│   ├── feed.py                # RSS 피드 서비스 (Bottle)
-│   └── touch.py               # 유틸리티 스크립트
+│   └── feed.py                # RSS 피드 서비스 (Bottle)
 ├── scripts/
 │   ├── deploy.sh              # 운영 환경 배포 스크립트
 │   ├── setup-dev.sh           # 개발 환경 설정 스크립트
 │   ├── check-recording.sh      # 경량 사전 확인 스크립트
+│   ├── touch.sh               # 파일 날짜 복원 유틸리티
 │   └── systemd/
 │       ├── radio-record.service # systemd 서비스 정의
 │       └── radio-record.timer   # systemd 타이머 정의

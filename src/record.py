@@ -40,21 +40,29 @@ def parse_programs_config():
         if not program_str:
             break
         
-        # Parse: schedule|alias|name|url
-        parts = program_str.split('|', 3)
-        if len(parts) != 4:
+        # Parse: schedule|alias|name[|url]
+        parts = program_str.split('|')
+        if len(parts) < 3:
             print(f"⚠️ WARNING: Invalid format for PROGRAM{i}: {program_str}")
-            print(f"   Expected format: start-end|alias|name|url")
+            print(f"   Expected format: start-end|alias|name[|url]")
             continue
         
-        program_schedule, program_id, program_name, program_url = parts
-        program_id = program_id.strip()
-        program_name = program_name.strip()
-        program_schedule = program_schedule.strip()
-        program_url = program_url.strip()
+        program_schedule = parts[0].strip()
+        program_id = parts[1].strip()
+        program_name = parts[2].strip()
+        program_url = parts[3].strip() if len(parts) > 3 else ""
         
-        if not program_id or not program_name or not program_schedule or not program_url:
-            print(f"⚠️ WARNING: PROGRAM{i} has empty fields")
+        # Use global STREAM_URL if program-specific URL is missing
+        if not program_url:
+            global_url = os.getenv('STREAM_URL', '')
+            if global_url:
+                program_url = global_url
+            else:
+                print(f"⚠️ WARNING: PROGRAM{i} has no URL and global STREAM_URL is not set")
+                continue
+        
+        if not program_id or not program_name or not program_schedule:
+            print(f"⚠️ WARNING: PROGRAM{i} has empty required fields (id, name, or schedule)")
             continue
         
         # Parse schedule: "07:40-08:00"

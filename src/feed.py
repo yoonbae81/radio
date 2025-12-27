@@ -13,7 +13,9 @@ from cachetools import TTLCache
 # ======================================================================
 
 RECORDINGS_DIR = Path(os.getenv('RECORDINGS_DIR', '/app/recordings'))
-SECRET = os.getenv('SECRET', '')
+# Support multiple secrets (comma-separated)
+_SECRET_ENV = os.getenv('SECRET', '')
+SECRETS = [s.strip() for s in _SECRET_ENV.split(',') if s.strip()]
 PROGRAMS_CONFIG = os.getenv('PROGRAMS', '')
 ROUTE_PREFIX = os.getenv('ROUTE_PREFIX', '/radio')
 CACHE_TTL = int(os.getenv('CACHE_TTL', '3600'))  # Default 1 hour
@@ -48,21 +50,25 @@ def parse_programs(config_str):
         if not program_str:
             break
         
-        # Parse: schedule|alias|name|url
-        parts = program_str.split('|', 3)
-        if len(parts) != 4:
+        # Parse: schedule|alias|name[|url]
+        parts = program_str.split('|')
+        if len(parts) < 3:
             print(f"WARNING: Invalid format for PROGRAM{i}: {program_str}")
-            print(f"   Expected format: start-end|alias|name|url")
+            print(f"   Expected format: start-end|alias|name[|url]")
             continue
         
-        program_schedule, program_id, program_name, program_url = parts
-        program_id = program_id.strip()
-        program_name = program_name.strip()
-        program_schedule = program_schedule.strip()
-        program_url = program_url.strip()
+        program_schedule = parts[0].strip()
+        program_id = parts[1].strip()
+        program_name = parts[2].strip()
+        program_url = parts[3].strip() if len(parts) > 3 else ""
         
-        if not program_id or not program_name or not program_schedule or not program_url:
-            print(f"WARNING: PROGRAM{i} has empty fields")
+        # URL is optional for feed.py, but we handle it for consistency
+        if not program_url:
+            program_url = os.getenv('STREAM_URL', '')
+        
+        # Only schedule, id, and name are strictly required for the feed service
+        if not program_id or not program_name or not program_schedule:
+            print(f"WARNING: PROGRAM{i} is missing required fields (id, name, or schedule)")
             continue
         
         # Parse schedule: "07:40-08:00"
@@ -104,12 +110,12 @@ PROGRAMS = parse_programs(PROGRAMS_CONFIG)
 
 def require_auth():
     """Require authentication via query string secret."""
-    # Bypass authentication if SECRET is not set or empty
-    if not SECRET:
+    # Bypass authentication if no secrets are configured
+    if not SECRETS:
         return
     
     provided_secret = request.query.get('secret', '')
-    if provided_secret != SECRET:
+    if provided_secret not in SECRETS:
         print(f"🚫 Unauthorized access attempt from {request.remote_addr} to {request.path}")
         abort(403, "Invalid or missing secret")
 
@@ -161,17 +167,21 @@ def matches_schedule(file_time, schedule, tolerance_min=5):
     except (ValueError, IndexError):
         return False
 
-def filter_files_by_program(files, schedule):
+def filter_files_by_program(files, schedule, program_id="unknown"):
     """Filter files by program schedule."""
-    if not schedule:
+    if schedule is None:
         return files
     
     filtered = []
+    print(f"🔍 Filtering {len(files)} files for program '{program_id}' with schedule {schedule}")
     for f in files:
         file_time = extract_time_from_filename(f.name)
         if file_time and matches_schedule(file_time, schedule):
             filtered.append(f)
+        # else:
+        #    print(f"   - Skipping {f.name} (time {file_time} doesn't match)")
     
+    print(f"✅ Found {len(filtered)} matching files for '{program_id}'")
     return filtered
 
 # ======================================================================
@@ -273,9 +283,9 @@ def _generate_podcast_feed_internal(program_name=None, program_id=None, schedule
 
     
     # Filter by program schedule if provided
-    if schedule:
-        files = filter_files_by_program(all_files, schedule)
-        print(f"Filtered {len(all_files)} files to {len(files)} for program {program_id}")
+    # Note: Use 'is not None' because an empty list is a valid (but empty) schedule
+    if schedule is not None:
+        files = filter_files_by_program(all_files, schedule, program_id)
     else:
         files = all_files
     
@@ -289,7 +299,9 @@ def _generate_podcast_feed_internal(program_name=None, program_id=None, schedule
             date = time.localtime(mtime)
             
             e = Episode()
-            e.title = time.strftime('%Y-%m-%d %H:%M Recording', date)
+            # Use requested format: Program Name YYYY-MM-DD
+            display_name = program_name if program_name else "Recording"
+            e.title = f"{display_name} {time.strftime('%Y-%m-%d', date)}"
             e.media = Media(web_base_url + f.name, size)
             # Use filename as GUID for consistency
             e.id = f.name
@@ -440,7 +452,7 @@ def serve_file(filename):
 if __name__ == '__main__':
     print(f"Starting Radio Feed Service...")
     print(f"Recordings directory: {RECORDINGS_DIR}")
-    print(f"Authentication: {'Enabled (SECRET)' if SECRET else 'Disabled (no SECRET)'}")
+    print(f"Authentication: {'Enabled (' + str(len(SECRETS)) + ' secrets)' if SECRETS else 'Disabled (no SECRET)'}")
     print(f"Route prefix: {ROUTE_PREFIX}")
     print(f"Cache TTL: {CACHE_TTL} seconds")
     print(f"Base URL: Dynamic (from request headers)")

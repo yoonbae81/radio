@@ -12,6 +12,51 @@ import ffmpeg
 # --- Global Constants ---
 # ======================================================================
 
+import datetime
+
+# 요일 매핑
+WEEKDAYS = {
+    'MON': 0, 'TUE': 1, 'WED': 2, 'THU': 3, 'FRI': 4, 'SAT': 5, 'SUN': 6
+}
+
+def is_today_scheduled(days_str: str) -> bool:
+    """
+    Check if today is within the scheduled days.
+    Supports: ALL, MON-FRI, SAT,SUN, MON,WED,FRI
+    """
+    if not days_str or days_str.upper() in ['ALL', 'EVERY', '*']:
+        return True
+    
+    today = datetime.datetime.now().weekday()
+    days_str = days_str.upper().strip()
+    
+    # 1. Handle List (MON,WED,FRI)
+    if ',' in days_str:
+        days = [d.strip() for d in days_str.split(',')]
+        for d in days:
+            if d in WEEKDAYS and WEEKDAYS[d] == today:
+                return True
+        return False
+        
+    # 2. Handle Range (MON-FRI)
+    if '-' in days_str:
+        try:
+            start_day, end_day = [d.strip() for d in days_str.split('-', 1)]
+            if start_day in WEEKDAYS and end_day in WEEKDAYS:
+                start_idx = WEEKDAYS[start_day]
+                end_idx = WEEKDAYS[end_day]
+                
+                # Handle wraps (e.g., SAT-MON)
+                if start_idx <= end_idx:
+                    return start_idx <= today <= end_idx
+                else:
+                    return today >= start_idx or today <= end_idx
+        except ValueError:
+            pass
+            
+    # 3. Handle Single Day (MON)
+    return days_str in WEEKDAYS and WEEKDAYS[days_str] == today
+
 # 저장 디렉토리
 RECORDINGS_DIR = Path("/app/recordings")
 # Lock 파일 (중복 실행 방지)
@@ -24,11 +69,11 @@ LOCK_FILE = Path("/tmp/radio-record.lock")
 def parse_programs_config():
     """
     Parse PROGRAMS from environment variables.
-    Format: PROGRAM1=start-end|alias|name|url
+    Format: PROGRAM1=start-end|days|alias|name|url
     
     Example:
-        PROGRAM1=07:40-08:00|program1|Program Name #1|https://example.com/stream1.m3u8
-        PROGRAM2=08:00-08:20|program2|Program Name #2|https://example.com/stream2.m3u8
+        PROGRAM1=07:40-08:00|MON-FRI|program1|Program Name #1|https://example.com/stream1.m3u8
+        PROGRAM2=08:00-08:20|SAT,SUN|program2|Program Name #2|https://example.com/stream2.m3u8
     """
     programs = {}
     
@@ -40,18 +85,24 @@ def parse_programs_config():
         if not program_str:
             break
         
-        # Parse: schedule|alias|name[|url]
-        parts = program_str.split('|')
-        if len(parts) < 3:
+        # Parse: schedule|days|alias|name[|url]
+        parts = [p.strip() for p in program_str.split('|')]
+        
+        if len(parts) < 4:
             print(f"⚠️ WARNING: Invalid format for PROGRAM{i}: {program_str}")
-            print(f"   Expected format: start-end|alias|name[|url]")
+            print(f"   Expected format: start-end|days|alias|name[|url]")
             continue
-        
-        program_schedule = parts[0].strip()
-        program_id = parts[1].strip()
-        program_name = parts[2].strip()
-        program_url = parts[3].strip() if len(parts) > 3 else ""
-        
+            
+        program_schedule = parts[0]
+        program_days = parts[1]
+        program_id = parts[2]
+        program_name = parts[3]
+        program_url = parts[4] if len(parts) > 4 else ""
+            
+        # Skip if not scheduled for today
+        if not is_today_scheduled(program_days):
+            continue
+            
         # Use global STREAM_URL if program-specific URL is missing
         if not program_url:
             global_url = os.getenv('STREAM_URL', '')
@@ -86,16 +137,17 @@ def parse_programs_config():
         programs[program_id] = {
             'name': program_name,
             'schedule': schedule,
-            'url': program_url
+            'url': program_url,
+            'days': program_days
         }
     
     if programs:
-        print(f"📋 Loaded {len(programs)} programs from environment variables")
+        print(f"📋 Loaded {len(programs)} programs for today from environment variables")
         for prog_id, prog_info in programs.items():
             schedules = [f"{s['start']}-{s['end']}" for s in prog_info['schedule']]
-            print(f"   - {prog_id}: {prog_info['name']} @ {', '.join(schedules)}")
+            print(f"   - {prog_id}: {prog_info['name']} @ {', '.join(schedules)} ({prog_info['days']})")
     else:
-        print(f"⚠️ No programs configured")
+        print(f"⚠️ No programs scheduled for today")
     
     return programs
 

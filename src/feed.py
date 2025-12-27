@@ -32,66 +32,42 @@ app = Bottle()
 def parse_programs(config_str):
     """
     Parse program configuration from environment variables.
-    Format: PROGRAM1=start-end|alias|name|url
+    Format: PROGRAM1=start-end|days|alias|name|url
     
     Example:
-        PROGRAM1=07:40-08:00|program1|Program Name #1|https://example.com/stream1.m3u8
-        PROGRAM2=08:00-08:20|program2|Program Name #2|https://example.com/stream2.m3u8
-    
-    Note: config_str parameter is ignored (kept for compatibility with existing code)
+        PROGRAM1=07:40-08:00|MON-FRI|program1|Program Name #1|https://example.com/stream1.m3u8
+        PROGRAM2=08:00-08:20|SAT,SUN|program2|Program Name #2|https://example.com/stream2.m3u8
     """
     programs = {}
+    weekdays = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN', 'ALL', 'EVERY']
     
     # Check for up to 50 programs (PROGRAM1 to PROGRAM50)
     for i in range(1, 51):
         program_str = os.getenv(f'PROGRAM{i}')
-        
-        # Stop when we don't find a program
         if not program_str:
             break
         
-        # Parse: schedule|alias|name[|url]
-        parts = program_str.split('|')
-        if len(parts) < 3:
-            print(f"WARNING: Invalid format for PROGRAM{i}: {program_str}")
-            print(f"   Expected format: start-end|alias|name[|url]")
+        parts = [p.strip() for p in program_str.split('|')]
+        
+        if len(parts) < 4:
             continue
-        
-        program_schedule = parts[0].strip()
-        program_id = parts[1].strip()
-        program_name = parts[2].strip()
-        program_url = parts[3].strip() if len(parts) > 3 else ""
-        
-        # URL is optional for feed.py, but we handle it for consistency
-        if not program_url:
-            program_url = os.getenv('STREAM_URL', '')
-        
-        # Only schedule, id, and name are strictly required for the feed service
+            
+        program_schedule = parts[0]
+        # program_days = parts[1] # Not strictly needed for feed filtering yet
+        program_id = parts[2]
+        program_name = parts[3]
+            
         if not program_id or not program_name or not program_schedule:
-            print(f"WARNING: PROGRAM{i} is missing required fields (id, name, or schedule)")
             continue
         
-        # Parse schedule: "07:40-08:00"
-        if '-' not in program_schedule:
-            print(f"WARNING: Invalid schedule format for PROGRAM{i}: {program_schedule}")
-            print(f"   Expected format: HH:MM-HH:MM")
-            continue
-        
-        start = program_schedule.split('-')[0].strip()
-        # Convert "07:40" to "0740"
-        start = start.replace(':', '')
-        
-        if not start:
-            print(f"WARNING: Invalid time format for PROGRAM{i}")
-            continue
-        
-        # Store as single schedule entry (list for compatibility)
-        schedule = [start]
-        
-        programs[program_id] = {
-            'name': program_name,
-            'schedule': schedule
-        }
+        # Parse start time: "07:40-08:00" -> "0740"
+        if '-' in program_schedule:
+            start = program_schedule.split('-')[0].strip().replace(':', '')
+            if start:
+                programs[program_id] = {
+                    'name': program_name,
+                    'schedule': [start]
+                }
     
     if programs:
         print(f"📋 Loaded {len(programs)} programs from environment variables")

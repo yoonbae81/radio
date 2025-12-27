@@ -60,7 +60,7 @@ cd radio-recorder
 # 2. 프로그램 설정
 cp .env.example .env
 nano .env  # STREAM_URL, PROGRAM1, PROGRAM2 등 설정
-           # 포맷: PROGRAM1=시작-종료|별칭|이름|스트림URL
+           # 포맷: PROGRAM1=시작-종료|요일|별칭|이름|스트림URL
 
 # 3. 서비스 배포 및 타이머 설정 (USER 모드)
 ./scripts/deploy.sh
@@ -100,14 +100,15 @@ USER_ID=1000
 GROUP_ID=1000
 
 # 프로그램 설정
-# 포맷: PROGRAMn=시작-종료|별칭|이름|스트림URL
+# 포맷: PROGRAMn=시작-종료|요일|별칭|이름|스트림URL
 # 시작-종료: HH:MM-HH:MM 형식
+# 요일: 방송 요일 (예: MON-FRI, SAT,SUN, MON,WED,FRI, ALL)
 # 별칭: URL에 사용될 식별자 (예: /radio/program1/feed.rss)
 # 이름: RSS 피드에 표시될 실제 프로그램 이름
 # 스트림URL: 특정 프로그램을 위한 전용 스트림 URL
-PROGRAM1=07:40-08:00|program1|프로그램 이름 #1|https://example.com/stream1.m3u8
-PROGRAM2=08:00-08:20|program2|프로그램 이름 #2|https://example.com/stream2.m3u8
-PROGRAM3=20:00-20:20|program3|프로그램 이름 #3|https://example.com/stream3.m3u8
+PROGRAM1=07:40-08:00|MON-FRI|program1|프로그램 이름 #1|https://example.com/stream1.m3u8
+PROGRAM2=08:00-08:20|SAT,SUN|program2|프로그램 이름 #2|https://example.com/stream2.m3u8
+PROGRAM3=20:00-20:20|ALL|program3|프로그램 이름 #3|https://example.com/stream3.m3u8
 
 # 글로벌 스트림 URL (수동 녹음 및 테스트용)
 STREAM_URL=https://example.com/stream.m3u8
@@ -126,8 +127,8 @@ STREAM_URL=https://example.com/stream.m3u8
 
 **예시**:
 - 현재 시간: `07:42`
-- `PROGRAM1=07:40-08:00|program1|프로그램 이름 #1|...`
-- ✅ 일치 (07:40 기준 2분 이내)
+- `PROGRAM1=07:40-08:00|MON-FRI|program1|프로그램 이름 #1|...`
+- ✅ 일치 (오늘이 평일이고 07:40 기준 2분 이내)
 - 20분 동안 녹음 진행 (07:40부터 08:00까지)
 
 ## 🐳 Docker Compose
@@ -214,7 +215,7 @@ systemctl --user start radio-record.service
 
 ```bash
 # 프로그램 추가
-PROGRAM4=08:20-08:40|program4|프로그램 이름 #4|...
+PROGRAM4=08:20-08:40|MON-FRI|program4|프로그램 이름 #4|...
 
 # 프로그램 제거 (삭제 또는 주석 처리)
 # PROGRAM2=...

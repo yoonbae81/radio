@@ -2,3 +2,5 @@ ffmpeg-python
 podgen
 bottle
 cachetools
+script-reporter
+python-dotenv

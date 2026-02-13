@@ -338,25 +338,65 @@ def main():
     """
     녹음 워크플로우를 실행하는 메인 함수
     """
+    try:
+        from script_reporter import ScriptReporter
+    except ImportError:
+        print("Wait! script-reporter is not installed. Please run `pip install script-reporter`.")
+        sys.exit(1)
+        
+    try:
+        from dotenv import load_dotenv
+        load_dotenv()
+    except ImportError:
+        print("Warning: python-dotenv not installed. Skipping .env loading.")
+
+    sr = ScriptReporter("radio-record")
+
     # Check for lock file (prevent concurrent executions)
     if LOCK_FILE.exists():
+        sr.stage("SKIPPED")
         print(f"ℹ️  Another recording is in progress (lock file exists)")
         print(f"   Skipping this execution to prevent conflicts")
+        # Consider this a success as it's intended behavior
+        sr.success({"status": "skipped", "reason": "lock_file_exists"})
         sys.exit(0)
     
     try:
+        sr.stage("INITIALIZING")
         # Create lock file
         LOCK_FILE.touch()
         print(f"🔒 Lock file created: {LOCK_FILE}")
         
         # 1. 설정 및 유효성 검사
-        duration_sec, start_time, stream_url = parse_and_validate_args()
-        
+        sr.stage("CONFIGURING")
+        try:
+            duration_sec, start_time, stream_url = parse_and_validate_args()
+        except SystemExit as e:
+            if e.code == 0:
+                sr.stage("SKIPPED")
+                sr.success({"status": "skipped", "reason": "no_schedule_match"})
+                return
+            raise
+
         # 2. 녹음 실행
+        sr.stage("RECORDING")
         output_file = execute_recording(duration_sec, stream_url, start_time)
         
         print(f"\n✅ Recording completed successfully")
         print(f"📁 Saved to: {output_file}")
+
+        sr.success({
+            "status": "completed", 
+            "file": str(output_file),
+            "duration": duration_sec,
+            "program_start": start_time
+        })
+        
+    except Exception as e:
+        import traceback
+        error_msg = traceback.format_exc()
+        sr.fail(error_msg)
+        sys.exit(1)
         
     finally:
         # Always remove lock file

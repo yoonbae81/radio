@@ -12,7 +12,24 @@ from cachetools import TTLCache
 # Configuration
 # ======================================================================
 
-DEFAULT_RECORDINGS_DIR = Path(__file__).parent.parent / "recordings"
+# Load .env if available
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
+# Base directory for data (recordings and logo)
+DATA_DIR_PATH = os.getenv('DATA_DIR')
+
+if DATA_DIR_PATH:
+    DEFAULT_RECORDINGS_DIR = Path(DATA_DIR_PATH) / "recordings"
+    DEFAULT_LOGO_DIR = Path(DATA_DIR_PATH) / "logo"
+else:
+    # Fallback to project-relative paths
+    DEFAULT_RECORDINGS_DIR = Path(__file__).parent.parent / "recordings"
+    DEFAULT_LOGO_DIR = Path(__file__).parent.parent / "logo"
+
 RECORDINGS_DIR = Path(os.getenv('RECORDINGS_DIR', str(DEFAULT_RECORDINGS_DIR)))
 # Support multiple secrets (comma-separated)
 _SECRET_ENV = os.getenv('SECRET', '')
@@ -21,7 +38,6 @@ PROGRAMS_CONFIG = os.getenv('PROGRAMS', '')
 ROUTE_PREFIX = os.getenv('ROUTE_PREFIX', '/radio')
 CACHE_TTL = int(os.getenv('CACHE_TTL', '3600'))  # Default 1 hour
 CACHE_INVALIDATION_FILE = RECORDINGS_DIR / '.last_recording'
-DEFAULT_LOGO_DIR = Path(__file__).parent.parent / "logo"
 LOGO_DIR = Path(os.getenv('LOGO_DIR', str(DEFAULT_LOGO_DIR)))
 FORCE_HTTPS = os.getenv('FORCE_HTTPS', 'false').lower() == 'true'
 
@@ -428,6 +444,13 @@ def serve_file(filename):
 # ======================================================================
 
 if __name__ == '__main__':
+    # Initialize reporter
+    try:
+        from script_reporter import ScriptReporter
+        sr = ScriptReporter("radio-feed")
+    except ImportError:
+        sr = None
+
     print(f"Starting Radio Feed Service...")
     print(f"Recordings directory: {RECORDINGS_DIR}")
     print(f"Authentication: {'Enabled (' + str(len(SECRETS)) + ' secrets)' if SECRETS else 'Disabled (no SECRET)'}")
@@ -443,4 +466,6 @@ if __name__ == '__main__':
     
     # Run server
     port = int(os.getenv('PORT', '8080'))
+    if sr:
+        sr.success({"status": "started", "port": port})
     app.run(host='0.0.0.0', port=port, debug=False, reloader=False)

@@ -5,6 +5,13 @@ import sys
 import time
 from pathlib import Path
 
+# Load .env if available
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 # 외부 라이브러리
 import ffmpeg
 
@@ -58,7 +65,11 @@ def is_today_scheduled(days_str: str) -> bool:
     return days_str in WEEKDAYS and WEEKDAYS[days_str] == today
 
 # 저장 디렉토리 (환경변수 또는 하위 recordings 폴더)
-DEFAULT_RECORDINGS_DIR = Path(__file__).parent.parent / "recordings"
+DATA_DIR_PATH = os.getenv('DATA_DIR')
+if DATA_DIR_PATH:
+    DEFAULT_RECORDINGS_DIR = Path(DATA_DIR_PATH) / "recordings"
+else:
+    DEFAULT_RECORDINGS_DIR = Path(__file__).parent.parent / "recordings"
 RECORDINGS_DIR = Path(os.getenv('RECORDINGS_DIR', str(DEFAULT_RECORDINGS_DIR)))
 # Lock 파일 (중복 실행 방지)
 LOCK_FILE = Path("/tmp/radio-record.lock")
@@ -197,8 +208,8 @@ def parse_and_validate_args():
             if not manual_url:
                 sys.stderr.write("ERROR: STREAM_URL environment variable must be set for manual execution.\\n")
                 sys.exit(1)
-            # Return duration, None for start_time, and manual_url
-            return (duration_min * 60, None, manual_url)
+            # Return duration, None for start_time, url, and a label for reporting
+            return (duration_min * 60, None, manual_url, "Manual Recording")
         except ValueError:
             sys.stderr.write("ERROR: Duration must be an integer (minutes).\\n")
             sys.stderr.write(f"Usage: {sys.argv[0]} [duration_minutes]\\n")
@@ -254,8 +265,8 @@ def parse_and_validate_args():
         print(f"🎯 Matched program: {best_match['program_name']}")
         print(f"⏰ Time range: {best_match['start']}-{best_match['end']}")
         print(f"⏱️  Auto-calculated duration: {duration_sec // 60} minutes")
-        # Return duration, start time, and url
-        return (duration_sec, best_match['start'], best_match['url'])
+        # Return duration, start time, url, and program name
+        return (duration_sec, best_match['start'], best_match['url'], best_match['program_name'])
     
     # No matching program found - this is normal, just exit quietly
     print(f"ℹ️  No matching program for current time {current_time} (within 5-minute window)")
@@ -345,11 +356,6 @@ def main():
         print("Wait! script-reporter is not installed. Please run `pip install script-reporter`.")
         sys.exit(1)
         
-    try:
-        from dotenv import load_dotenv
-        load_dotenv()
-    except ImportError:
-        print("Warning: python-dotenv not installed. Skipping .env loading.")
 
     sr = ScriptReporter("radio-record")
 
@@ -371,7 +377,7 @@ def main():
         # 1. 설정 및 유효성 검사
         sr.stage("CONFIGURING")
         try:
-            duration_sec, start_time, stream_url = parse_and_validate_args()
+            duration_sec, start_time, stream_url, program_name = parse_and_validate_args()
         except SystemExit as e:
             if e.code == 0:
                 sr.stage("SKIPPED")
@@ -387,9 +393,9 @@ def main():
         print(f"📁 Saved to: {output_file}")
 
         sr.success({
-            "status": "completed", 
-            "file": str(output_file),
-            "duration": duration_sec,
+            "program": program_name,
+            "duration": f"{duration_sec // 60} minutes",
+            "file": output_file.name,
             "program_start": start_time
         })
         

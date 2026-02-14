@@ -1,128 +1,81 @@
-# Development Setup Scripts
+# Radio Recorder Scripts
 
-Scripts for setting up development environment on Windows/macOS/Linux.
+Scripts for setting up and managing the Radio Recording system using Python virtual environment and systemd.
 
 ## Files
 
-- `setup-dev.sh` - Setup script for macOS/Linux
-- `setup-dev.bat` - Setup script for Windows
-- `deploy.sh` - Production setup with systemd user mode (Linux only)
+- `setup-env.sh` - Installs Python dependencies and sets up virtual environment
+- `install-systemd.sh` - Installs systemd user services and timers
+- `deploy.sh` - Main deployment script (calls setup-env.sh)
+- `run.sh` - Manual recording execution script
+- `check-recording.sh` - Lightweight check if recording is needed (used by systemd)
+- `touch.sh` - Tool to fix file modification times for feed consistency
 
-## Development Setup (Windows/macOS/Linux)
+## Quick Start (Linux)
 
-### macOS/Linux
-
-```bash
-chmod +x scripts/setup-dev.sh
-./scripts/setup-dev.sh
-```
-
-### Windows
-
-```cmd
-scripts\setup-dev.bat
-```
-
-### What it does
-
-1. ✅ Checks Docker and Docker Compose installation
-2. ✅ Creates `.env` file from `.env.example`
-3. ✅ Creates `recordings/` directory
-4. ✅ Builds Docker images
-5. ✅ Starts feed service
-
-### After Setup
-
-1. **Configure programs** in `.env`:
-   ```bash
-   PROGRAM1=07:40-08:00|program1|Program Name #1|https://example.com/stream1.m3u8
-   PROGRAM2=08:00-08:20|program2|Program Name #2|https://example.com/stream2.m3u8
-   ```
-
-2. **Access feed**:
-   ```
-   http://localhost:8013/radio/feed.rss
-   ```
-
-3. **Test recording** (1 minute):
-   ```bash
-   docker compose run --rm recorder 1
-   ```
-
-4. **View logs**:
-   ```bash
-   docker compose logs -f feed
-   ```
-
-5. **Stop services**:
-   ```bash
-   docker compose down
-   ```
-
-## Production Setup (Linux Server)
-
-For production deployment with automatic scheduling using systemd **USER mode**:
+For production deployment with automatic scheduling:
 
 ```bash
-./scripts/deploy.sh
+# 1. Setup environment (dependencies, .venv, .env)
+./scripts/setup-env.sh
+
+# 2. Configure programs in .env
+nano .env
+
+# 3. Install systemd services
+./scripts/install-systemd.sh
 ```
 
-### What it does:
-1. ✅ Enables **linger** for the current user (`loginctl enable-linger $USER`)
-2. ✅ Creates application structure in `/srv/radio`
-3. ✅ Installs systemd user services in `~/.config/systemd/user/`
-4. ✅ Enables and starts the systemd timer
+## Management Commands
 
-This allows the recording service to:
-- Run without `root` privileges
-- Start automatically on boot (without manual login)
-- Persist after logout
+### Manual Recording
 
-### Monitoring (User Mode):
-- Check timer status:  `systemctl --user status radio-record.timer`
-- View logs:           `journalctl --user -u radio-record.service -f`
-- Trigger manually:    `systemctl --user start radio-record.service`
-
-## Manual Recording
-
-### With auto-duration (from environment variables)
+You can run a recording manually or test the auto-matching logic:
 
 ```bash
-# Matches current time with configured programs
-docker compose run --rm recorder
+# Auto-match current time with configured programs
+./scripts/run.sh
+
+# Record for 30 minutes explicitly
+./scripts/run.sh 30
 ```
 
-### With manual duration
+### Service Management (Systemd USER mode)
 
-```bash
-# Record for 30 minutes
-docker compose run --rm recorder 30
-```
+- **Check status**:
+  ```bash
+  systemctl --user status radio-record.timer
+  systemctl --user status radio-feed.service
+  ```
+
+- **View logs**:
+  ```bash
+  journalctl --user -u radio-record.service -f
+  journalctl --user -u radio-feed.service -f
+  ```
+
+- **Restart services**:
+  ```bash
+  systemctl --user restart radio-record.timer radio-feed.service
+  ```
 
 ## Troubleshooting
 
-### Docker not found
-
-Install Docker Desktop:
-- Windows: https://docs.docker.com/desktop/install/windows-install/
-- macOS: https://docs.docker.com/desktop/install/mac-install/
-- Linux: https://docs.docker.com/engine/install/
-
-### Permission denied (Linux/macOS)
-
+### Virtual Environment Issues
+If dependencies are missing, try re-running:
 ```bash
-chmod +x scripts/setup-dev.sh
+./scripts/setup-env.sh
 ```
 
-### Port 8013 already in use
-
-Edit `.env` and change `PORT`:
+### Systemd Permissions
+Ensure lingering is enabled to keep services running after logout:
 ```bash
-PORT=8013
+loginctl enable-linger $USER
 ```
+*(Note: `install-systemd.sh` performs this automatically)*
 
-Then restart:
+### Port Conflicts
+If port 8013 is already in use, edit `.env` and change `PORT`, then restart the feed service:
 ```bash
-docker compose down
-docker compose up -d feed
+systemctl --user restart radio-feed.service
 ```

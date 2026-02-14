@@ -40,6 +40,12 @@ install_unit "radio-feed.service"
 
 # Reload and Enable
 if command -v systemctl &> /dev/null; then
+    # Enable lingering to keep services running after logout
+    if command -v loginctl &> /dev/null; then
+        echo "🔄 Enabling lingering for $USER..."
+        loginctl enable-linger "$USER"
+    fi
+
     echo "🔄 Reloading systemd..."
     systemctl --user daemon-reload
     

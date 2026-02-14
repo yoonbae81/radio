@@ -16,41 +16,9 @@
 - 📡 **RSS 피드**: 프로그램별 전용 팟캐스트 RSS 피드 제공
 - 🔒 **선택적 인증**: `SECRET` 환경 변수를 통한 간편한 인증 기능 제공
 - 💾 **캐싱**: 최적의 성능을 위해 TTL 기반의 피드 캐싱 지원
-- 🐳 **Docker**: Docker Compose를 이용한 간편한 배포 가능
 - ⏱️ **Systemd 타이머**: 호스트 시스템 타이머를 이용한 정교한 스케줄링 지원
 
 ## 📋 빠른 시작
-
-### 개발 모드 (Windows/macOS/Linux)
-
-로컬 개발 및 테스트용 설정
-
-**macOS/Linux:**
-```bash
-git clone https://github.com/yoonbae81/radio.git radio-recorder
-cd radio-recorder
-chmod +x scripts/setup-dev.sh
-./scripts/setup-dev.sh
-```
-
-**Windows:**
-```cmd
-git clone https://github.com/yoonbae81/radio.git radio-recorder
-cd radio-recorder
-scripts\setup-dev.bat
-```
-
-수행 작업:
-- ✅ Docker 설치 여부 확인
-- ✅ `.env.example`에서 `.env` 생성
-- ✅ Docker 이미지 빌드
-- ✅ 피드 서비스 시작
-
-이후 `.env` 파일을 편집하여 스트림 URL과 프로그램 설정 (접속 주소: `http://localhost:8013/radio/feed.rss`)
-
-### 운영 모드 (Linux 서버)
-
-자동 스케줄링을 포함한 운영 환경 배포
 
 ```bash
 # 1. 저장소 복제
@@ -62,8 +30,11 @@ cp .env.example .env
 nano .env  # STREAM_URL, PROGRAM1, PROGRAM2 등 설정
            # 포맷: PROGRAM1=시작-종료|요일|별칭|이름|스트림URL
 
-# 3. 서비스 배포 및 타이머 설정 (USER 모드)
-./scripts/deploy.sh
+# 3. 환경 설정 및 종속성 설치
+./scripts/setup-env.sh
+
+# 4. 서비스 배포 및 타이머 설정 (USER 모드)
+./scripts/install-systemd.sh
 ```
 
 피드 접속: `http://localhost:8013/radio/feed.rss`
@@ -94,10 +65,6 @@ CACHE_TTL=3600
 
 # 데이터 저장 경로 (호스트 OS 경로)
 DATA_DIR=/srv/radio
-
-# (자동 설정) 파일 생성 권한을 위한 유저/그룹 ID
-USER_ID=1000
-GROUP_ID=1000
 
 # 프로그램 설정
 # 포맷: PROGRAMn=시작-종료|요일|별칭|이름|스트림URL
@@ -131,33 +98,6 @@ STREAM_URL=https://example.com/stream.m3u8
 - ✅ 일치 (오늘이 평일이고 07:40 기준 2분 이내)
 - 20분 동안 녹음 진행 (07:40부터 08:00까지)
 
-## 🐳 Docker Compose
-
-### 서비스 관리
-
-```bash
-# 피드 서비스 시작
-docker compose up -d
-
-# 로그 확인
-docker compose logs -f feed
-
-# 서비스 재시작
-docker compose restart feed
-
-# 재빌드 및 재시작
-docker compose up -d --build
-```
-
-### 수동 녹음 (테스트용)
-
-```bash
-# 자동 시간 계산으로 녹음 (현재 시간에 맞는 프로그램 검색)
-USER_ID=$(id -u) GROUP_ID=$(id -g) docker compose run --rm recorder
-
-# 수동으로 녹음 시간 지정 (예: 30분)
-USER_ID=$(id -u) GROUP_ID=$(id -g) docker compose run --rm recorder 30
-```
 
 ## ⏰ Systemd 타이머 설정
 
@@ -181,8 +121,8 @@ chmod +x scripts/deploy.sh
 ### 작동 방식
 
 - **타이머**: 매 분 실행 (`OnCalendar=*:0/1`)
-- **서비스**: `docker compose run --rm recorder` 실행 (USER 모드)
-- **check-recording.sh**: Docker 기동 전 녹음 필요 여부를 미리 확인하는 경량 스크립트
+- **서비스**: `.venv/bin/python src/record.py` 실행 (USER 모드)
+- **check-recording.sh**: 녹음 필요 여부를 미리 확인하여 불필요한 실행을 방지하는 경량 스크립트
 - **record.py**:
   - `.env` 파일 확인 및 현재 시간 체크
   - 프로그램 매칭 시 녹음 시작
@@ -275,21 +215,22 @@ https://your-domain.com/radio/program1/feed.rss?secret=your-secret
 
 ```
 radio-recorder/
-├── docker-compose.yml          # Docker Compose 설정
-├── Dockerfile                  # 멀티 스테이지 빌드 설정
 ├── .env.example                # 환경 변수 템플릿
 ├── src/
 │   ├── record.py              # 녹음 핵심 로직
 │   └── feed.py                # RSS 피드 서비스 (Bottle)
 ├── scripts/
 │   ├── deploy.sh              # 운영 환경 배포 스크립트
-│   ├── setup-dev.sh           # 개발 환경 설정 스크립트
-│   ├── check-recording.sh      # 경량 사전 확인 스크립트
+│   ├── setup-env.sh           # 환경 설정 및 종속성 설치
+│   ├── install-systemd.sh     # systemd 서비스/타이머 설치
+│   ├── run.sh                 # 수동 녹음 실행 스크립트
+│   ├── check-recording.sh     # 경량 사전 확인 스크립트
 │   ├── touch.sh               # 파일 날짜 복원 유틸리티
 │   └── systemd/
-│       ├── radio-record.service # systemd 서비스 정의
-│       └── radio-record.timer   # systemd 타이머 정의
-├── recordings/                 # 녹음 파일 저장소 (볼륨 매핑)
+│       ├── radio-record.service # systemd 녹음 서비스 정의
+│       ├── radio-record.timer   # systemd 녹음 타이머 정의
+│       └── radio-feed.service   # systemd 피드 서비스 정의
+├── recordings/                 # 녹음 파일 저장소
 └── logo/                       # 프로그램 로고 저장소
 ```
 
@@ -309,11 +250,8 @@ python -m unittest discover tests -v
 - 설정 파일 확인: `cat .env`
 - 시스템 시간 확인: `date`
 
-### 피드 갱신 무효화 확인
-
-- 피드 서비스 로그 확인: `docker compose logs -f feed`
-- 피드 서비스 재시작: `docker compose restart feed`
-- `.last_recording` 파일 존재 및 수정 시간 확인
+- 주기적인 상태 확인: `systemctl --user status radio-feed.service`
+- 피드 서비스 재시작: `systemctl --user restart radio-feed.service`
 
 ## 🛠️ 기술 스택
 
@@ -322,7 +260,6 @@ python -m unittest discover tests -v
 - **Bottle** - 경량 웹 프레임워크
 - **Podgen** - RSS 피드 생성 라이브러리
 - **cachetools** - 메모리 기반 캐싱
-- **Docker** - 컨테이너 가상화
 - **Systemd** - 리눅스 서비스 및 스케줄링
 
 ## 🔒 보안

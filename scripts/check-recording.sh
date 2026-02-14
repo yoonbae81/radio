@@ -1,7 +1,6 @@
 #!/bin/bash
 # Radio Recording Check Script
 # Runs every minute to check if recording is needed
-# Only launches Docker container when a program matches
 
 set -e
 

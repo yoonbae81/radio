@@ -12,7 +12,8 @@ from cachetools import TTLCache
 # Configuration
 # ======================================================================
 
-RECORDINGS_DIR = Path(os.getenv('RECORDINGS_DIR', '/app/recordings'))
+DEFAULT_RECORDINGS_DIR = Path(__file__).parent.parent / "recordings"
+RECORDINGS_DIR = Path(os.getenv('RECORDINGS_DIR', str(DEFAULT_RECORDINGS_DIR)))
 # Support multiple secrets (comma-separated)
 _SECRET_ENV = os.getenv('SECRET', '')
 SECRETS = [s.strip() for s in _SECRET_ENV.split(',') if s.strip()]
@@ -20,7 +21,8 @@ PROGRAMS_CONFIG = os.getenv('PROGRAMS', '')
 ROUTE_PREFIX = os.getenv('ROUTE_PREFIX', '/radio')
 CACHE_TTL = int(os.getenv('CACHE_TTL', '3600'))  # Default 1 hour
 CACHE_INVALIDATION_FILE = RECORDINGS_DIR / '.last_recording'
-LOGO_DIR = Path('/app/logo')
+DEFAULT_LOGO_DIR = Path(__file__).parent.parent / "logo"
+LOGO_DIR = Path(os.getenv('LOGO_DIR', str(DEFAULT_LOGO_DIR)))
 FORCE_HTTPS = os.getenv('FORCE_HTTPS', 'false').lower() == 'true'
 
 app = Bottle()
@@ -440,4 +442,5 @@ if __name__ == '__main__':
     RECORDINGS_DIR.mkdir(parents=True, exist_ok=True)
     
     # Run server
-    app.run(host='0.0.0.0', port=8080, debug=False, reloader=False)
+    port = int(os.getenv('PORT', '8080'))
+    app.run(host='0.0.0.0', port=port, debug=False, reloader=False)

@@ -1,10 +1,11 @@
 [Unit]
-Description=Timer for Radio Recording
+Description=Radio Recorder Timer
+Requires=radio-record.service
 
 [Timer]
-# Trigger every minute to check for scheduled programs
-# Lock file prevents concurrent executions
+# Run every minute to check schedule
 OnCalendar=*:0/1
+Persistent=true
 
 [Install]
 WantedBy=timers.target

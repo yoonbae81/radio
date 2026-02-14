@@ -1,0 +1,23 @@
+[Unit]
+Description=Radio Feed Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory={{PROJECT_ROOT}}
+Environment="PATH={{PROJECT_ROOT}}/.venv/bin:/usr/local/bin:/usr/bin:/bin"
+EnvironmentFile={{PROJECT_ROOT}}/.env
+
+# Execute using .venv python
+ExecStart={{PROJECT_ROOT}}/.venv/bin/python {{PROJECT_ROOT}}/src/feed.py
+
+Restart=always
+RestartSec=5
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=radio-feed
+
+[Install]
+WantedBy=default.target

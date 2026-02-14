@@ -57,8 +57,9 @@ def is_today_scheduled(days_str: str) -> bool:
     # 3. Handle Single Day (MON)
     return days_str in WEEKDAYS and WEEKDAYS[days_str] == today
 
-# 저장 디렉토리
-RECORDINGS_DIR = Path("/app/recordings")
+# 저장 디렉토리 (환경변수 또는 하위 recordings 폴더)
+DEFAULT_RECORDINGS_DIR = Path(__file__).parent.parent / "recordings"
+RECORDINGS_DIR = Path(os.getenv('RECORDINGS_DIR', str(DEFAULT_RECORDINGS_DIR)))
 # Lock 파일 (중복 실행 방지)
 LOCK_FILE = Path("/tmp/radio-record.lock")
 

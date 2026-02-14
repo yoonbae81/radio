@@ -1,20 +1,22 @@
 [Unit]
-Description=Radio Recording
-After=network.target
+Description=Radio Recorder Service
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=oneshot
-WorkingDirectory=/srv/radio
-# Pass system user ID and group ID to Docker Compose
-Environment=USER_ID=%U
-Environment=GROUP_ID=%G
+WorkingDirectory={{PROJECT_ROOT}}
+Environment="PATH={{PROJECT_ROOT}}/.venv/bin:/usr/local/bin:/usr/bin:/bin"
+EnvironmentFile={{PROJECT_ROOT}}/.env
+
 # Check if recording is needed (lightweight bash script)
-ExecStartPre=/srv/radio/scripts/check-recording.sh
-# If check succeeds (exit 0), run Docker container for recording
-ExecStart=/usr/bin/docker compose run --rm recorder
+ExecStartPre={{PROJECT_ROOT}}/scripts/check-recording.sh
+# If check succeeds (exit 0), run Python script for recording
+ExecStart={{PROJECT_ROOT}}/.venv/bin/python {{PROJECT_ROOT}}/src/record.py
+
 StandardOutput=journal
 StandardError=journal
-RemainAfterExit=no
+SyslogIdentifier=radio-record
 
 [Install]
 WantedBy=default.target

@@ -465,7 +465,7 @@ if __name__ == '__main__':
     RECORDINGS_DIR.mkdir(parents=True, exist_ok=True)
     
     # Run server
-    port = int(os.getenv('PORT', '8080'))
+    port = int(os.getenv('PORT', '8013'))
     if sr:
         sr.success({"status": "started", "port": port})
     app.run(host='0.0.0.0', port=port, debug=False, reloader=False)

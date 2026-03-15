@@ -1,0 +1,50 @@
+# Minimal macOS recorder configuration.
+# Copy to scripts/macos/radio.conf and adjust the values below.
+
+# Apple Silicon Homebrew usually installs ffmpeg here.
+# Change this if your ffmpeg binary lives elsewhere.
+FFMPEG_BIN="/opt/homebrew/bin/ffmpeg"
+
+# Optional. Leave empty to use ffprobe from PATH.
+FFPROBE_BIN="/opt/homebrew/bin/ffprobe"
+
+# Optional. Used by the local static file server and some helper scripts.
+PYTHON_BIN="/usr/bin/python3"
+
+# Optional. If the CLI is not in PATH, point this at your Tailscale binary.
+TAILSCALE_BIN="tailscale"
+
+# A root folder. Each alias gets its own subdirectory inside OUTPUT_DIR.
+OUTPUT_DIR="$HOME/Music/radio-archive"
+
+# Local port for the private static web server that Tailscale proxies to.
+PODCAST_HTTP_PORT="17880"
+
+# Matching tolerance after the scheduled start time.
+MATCH_WINDOW_MINUTES="5"
+
+# Recording format settings.
+# Set AUDIO_CODEC="copy" if your source is already AAC and you want stream copy.
+AUDIO_CODEC="aac"
+AUDIO_BITRATE="128k"
+
+# Set FEED_ENABLED=1 to create feed.xml files after each recording.
+FEED_ENABLED="0"
+
+# Optional. Leave empty to auto-derive a Tailscale HTTPS URL.
+PUBLIC_BASE_URL=""
+
+PODCAST_AUTHOR="Radio Archive"
+PODCAST_LANGUAGE="ko-KR"
+PODCAST_DESCRIPTION="Personal radio archive"
+PODCAST_COPYRIGHT="Personal use only"
+PODCAST_EXPLICIT="no"
+
+# Optional absolute URL to podcast artwork.
+PODCAST_IMAGE_URL=""
+
+# Format:
+# PROGRAMn="alias|title|days|HH:MM|duration_minutes|stream_url"
+# days examples: ALL, MON-FRI, SAT,SUN, MON,WED,FRI
+PROGRAM1="morning-news|Morning News|MON-FRI|07:40|20|https://example.com/live.m3u8"
+PROGRAM2="weekend-show|Weekend Show|SAT,SUN|20:00|60|https://example.com/live.m3u8"

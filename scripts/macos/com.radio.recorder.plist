@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.radio.recorder</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>RADIO_CONFIG</key>
+    <string>{{CONFIG_PATH}}</string>
+  </dict>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>{{PROJECT_ROOT}}/scripts/macos/check-and-record.sh</string>
+  </array>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>StartInterval</key>
+  <integer>60</integer>
+
+  <key>StandardOutPath</key>
+  <string>{{PROJECT_ROOT}}/logs/macos-recorder.out.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>{{PROJECT_ROOT}}/logs/macos-recorder.err.log</string>
+</dict>
+</plist>

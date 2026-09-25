@@ -1,29 +1,113 @@
-name: Deploy Radio Service
+# Save as .github/workflows/deploy.yml in each repository.
+# Works on Linux (systemd --user) and macOS (launchd) hosts.
+#
+# Secrets:   WG_CONFIG (wg-quick client config), SSH_KEY (private key)
+# Variables: HOST, USER              (required)
+#            SERVICE                 (optional) service(s) to restart, space-separated; default
+#                                    <repo>.service on Linux, none on macOS (launchd label)
+#            BUILD_CMD               (optional) e.g. "npm ci && npm run build"
+#            KNOWN_HOSTS             (optional) pinned host key; else accept-new (TOFU)
+#            DEPLOY_ROOT             (optional) default /opt
+# Host: <root>/<repo> is a clean git checkout of the pushed branch (main/master); `git fetch` works unattended.
+
+name: Deploy over WireGuard
 
 on:
   push:
-    branches:
-      - master
+    branches: [main, master]
   workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-${{ github.repository }}
+  cancel-in-progress: false
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      HOST: ${{ vars.HOST }}
+      USER: ${{ vars.USER }}
+      SERVICE: ${{ vars.SERVICE }}
+      BUILD_CMD: ${{ vars.BUILD_CMD }}
+      KNOWN_HOSTS: ${{ vars.KNOWN_HOSTS }}
+      DEPLOY_ROOT: ${{ vars.DEPLOY_ROOT }}
+
     steps:
-      - name: Deploy to Remote Server
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USERNAME }}
-          key: ${{ secrets.SSH_KEY }}
-          port: ${{ secrets.SSH_PORT || 22 }}
-          script: |
-            # Navigate to the repository directory (adjust path if necessary)
-            # We assume the repo is already cloned on the server
-            cd ~/radio || exit 1
-            
-            echo "📥 Pulling latest changes..."
-            git pull origin master
-            
-            echo "🚀 Running deployment script..."
-            bash scripts/deploy.sh
+      - name: Connect WireGuard
+        env:
+          WG_CONFIG: ${{ secrets.WG_CONFIG }}
+        run: |
+          set -euo pipefail
+          sudo apt-get update && sudo apt-get install -y wireguard-tools
+          umask 077
+          # Runner has no resolvconf, so drop DNS=; a default route would cut off GitHub.
+          printf '%s\n' "$WG_CONFIG" | tr -d '\r' | grep -viE '^\s*DNS\s*=' > "$RUNNER_TEMP/wg.conf"
+          ! grep -qE 'AllowedIPs.*(0\.0\.0\.0/0|::/0)' "$RUNNER_TEMP/wg.conf"
+          sudo wg-quick up "$RUNNER_TEMP/wg.conf"
+
+      - name: Deploy
+        env:
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+        run: |
+          set -euo pipefail
+          REPO="${GITHUB_REPOSITORY##*/}"
+          [[ "$REPO" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ && "$REPO" != .* ]]
+          [[ "$USER" =~ ^[a-z_][a-z0-9_-]*$ ]]
+          [[ "$HOST" =~ ^[A-Za-z0-9][A-Za-z0-9.:-]*$ ]]
+
+          umask 077
+          printf '%s\n' "$SSH_KEY" | tr -d '\r' > "$RUNNER_TEMP/ssh_key"
+          if [ -n "$KNOWN_HOSTS" ]; then
+            printf '%s\n' "$KNOWN_HOSTS" > "$RUNNER_TEMP/known_hosts"; CHECK=yes
+          else
+            CHECK=accept-new
+          fi
+
+          # Variables are shell-quoted (%q) and prepended to the script sent over ssh.
+          {
+            printf 'repo=%q sha=%q branch=%q service=%q build=%q root=%q\n' \
+              "$REPO" "$GITHUB_SHA" "$GITHUB_REF_NAME" "$SERVICE" "$BUILD_CMD" "$DEPLOY_ROOT"
+            cat <<'REMOTE'
+          set -euo pipefail
+          export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+          export GIT_TERMINAL_PROMPT=0
+
+          # Pull exactly the commit that triggered this run.
+          cd "${root:-/opt}/$repo"
+          [ "$(git branch --show-current)" = "$branch" ]
+          git diff --quiet && git diff --cached --quiet
+          git fetch -q origin "$branch"
+          git merge --ff-only "$sha"
+
+          [ -z "$build" ] || bash -euo pipefail -c "$build"
+
+          # Restart each listed service (default <repo>.service if it exists).
+          export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+          if [ "$(uname -s)" = Darwin ]; then
+            for svc in $service; do
+              launchctl kickstart -k "gui/$(id -u)/$svc"; sleep 3
+              launchctl print "gui/$(id -u)/$svc" | grep -Eq '^\s*pid = [0-9]+'
+            done
+          else
+            [ -n "$service" ] || ! systemctl --user cat "$repo.service" >/dev/null 2>&1 || service="$repo.service"
+            for svc in $service; do
+              systemctl --user restart "$svc"
+              systemctl --user is-active --quiet "$svc"
+            done
+          fi
+          REMOTE
+          } | ssh -i "$RUNNER_TEMP/ssh_key" \
+                -o BatchMode=yes -o IdentitiesOnly=yes -o ConnectTimeout=15 \
+                -o "StrictHostKeyChecking=$CHECK" \
+                -o "UserKnownHostsFile=$RUNNER_TEMP/known_hosts" \
+                "$USER@$HOST" bash -s
+
+      - name: Disconnect and clean up
+        if: always()
+        run: |
+          sudo wg-quick down "$RUNNER_TEMP/wg.conf" || true
+          rm -f "$RUNNER_TEMP"/{wg.conf,ssh_key,known_hosts}

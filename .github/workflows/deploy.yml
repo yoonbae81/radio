@@ -102,6 +102,7 @@ jobs:
           REMOTE
           } | ssh -i "$RUNNER_TEMP/ssh_key" \
                 -o BatchMode=yes -o IdentitiesOnly=yes -o ConnectTimeout=15 \
+                -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
                 -o "StrictHostKeyChecking=$CHECK" \
                 -o "UserKnownHostsFile=$RUNNER_TEMP/known_hosts" \
                 "$USER@$HOST" bash -s

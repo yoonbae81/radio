@@ -44,7 +44,7 @@ nano .env  # STREAM_URL, PROGRAM1, PROGRAM2 등 설정
 ### 💡 핵심 설정
 
 - **프로그램 스케줄 (PROGRAM 1/2/3)**: 시작-종료 시간, 피드 별칭, 프로그램 이름을 정의하는 시스템 핵심 설정
-- **로고 이미지 관리**: `/srv/radio/logo/` 폴더 내에 `별칭.png`, `별칭.jpg`, `별칭.jpeg` 파일 저장 시 팟캐스트 로고로 자동 반영 (우선순위: png > jpg > jpeg)
+- **로고 이미지 관리**: `DATA_DIR/logo/` 폴더 내에 `별칭.png`, `별칭.jpg`, `별칭.jpeg` 파일 저장 시 팟캐스트 로고로 자동 반영 (우선순위: png > jpg > jpeg)
 
 ### 환경 변수
 
@@ -64,7 +64,7 @@ ROUTE_PREFIX=/radio
 CACHE_TTL=3600
 
 # 데이터 저장 경로 (호스트 OS 경로)
-DATA_DIR=/srv/radio
+DATA_DIR=/opt/radio
 
 # 프로그램 설정
 # 포맷: PROGRAMn=시작-종료|요일|별칭|이름|스트림URL

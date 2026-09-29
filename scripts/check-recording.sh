@@ -112,7 +112,7 @@ done < "$ENV_FILE"
 
 if [ $MATCH_FOUND -eq 0 ]; then
     echo "ℹ️  No matching program for current time $CURRENT_TIME"
-    exit 1  # No match found
+    exit 0  # Nothing to record - clean skip (non-zero fails the oneshot unit)
 fi
 
 # Match found - return success
